@@ -24,12 +24,24 @@ namespace AmionicSession3
         private void Form1_Load(object sender, EventArgs e)
         {
             Color colorSecondary = ColorTranslator.FromHtml("#f79420");
-            Color colorMain = ColorTranslator.FromHtml("#196AA6");
+            Color colorMain = ColorTranslator.FromHtml("#fff");
             this.BackColor = colorMain;
             button1.BackColor = colorSecondary;
             LoadComboboxes();
             radioButton2.Checked = true;
             dateTimePicker2.Enabled = false;
+
+            //dEFAULTING dATE   
+            dateTimePicker1.Value = new DateTime(2017, 10, 04);
+            dateTimePicker2.Value = new DateTime(2017, 10, 04);
+
+            //Setting row select
+            dataGridView1.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dataGridView1.MultiSelect = false;
+
+            dataGridView2.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            dataGridView2.MultiSelect = false;
+
         }
 
         private void LoadComboboxes()
@@ -72,7 +84,7 @@ namespace AmionicSession3
             int fromAirport = (int)comboBox1.SelectedValue;
             int toAirport = (int)comboBox2.SelectedValue;
             int cabinType = (int)comboBox3.SelectedValue;
-            
+
             if (fromAirport == toAirport)
             {
                 MessageBox.Show("From and To cannot be same");
@@ -80,11 +92,12 @@ namespace AmionicSession3
             }
 
             //Fetch List from DB
-            var outboundFlights = db.Schedules.Where(x => x.Route.DepartureAirportId == fromAirport 
-                && x.Route.ArrivalAirportId == toAirport 
+            var outboundFlights = db.Schedules.Where(x => x.Route.DepartureAirportId == fromAirport
+                && x.Route.ArrivalAirportId == toAirport
                 && x.Date == DateOnly.FromDateTime(dateTimePicker1.Value))
                 .Select(x => new
                 {
+                    Id = x.Id,
                     From = x.Route.DepartureAirport.Iatacode,
                     To = x.Route.ArrivalAirport.Iatacode,
                     Date = x.Date,
@@ -101,6 +114,7 @@ namespace AmionicSession3
                 && x.Date < DateOnly.FromDateTime(dateTimePicker1.Value.AddDays(3)))
                 .Select(x => new
                 {
+                    Id = x.Id,
                     From = x.Route.DepartureAirport.Iatacode,
                     To = x.Route.ArrivalAirport.Iatacode,
                     Date = x.Date,
@@ -117,14 +131,15 @@ namespace AmionicSession3
             //}
             //Data source for Datagrid Outbound
             var flights = outboundFlights.Select(x => new
-                {
-                    From = x.From,
-                    To = x.To,
-                    Date = x.Date,
-                    Time = x.Time,
-                    FlightNumber = x.FlightNumber,
-                    CabinPrice = CalculatePrice((decimal)x.CabinPrice, cabinType)
-                }).ToList();
+            {
+                Id = x.Id,
+                From = x.From,
+                To = x.To,
+                Date = x.Date,
+                Time = x.Time,
+                FlightNumber = x.FlightNumber,
+                CabinPrice = CalculatePrice((decimal)x.CabinPrice, cabinType)
+            }).ToList();
             dataGridView1.DataSource = flights;
 
             //Data source for return
@@ -134,6 +149,7 @@ namespace AmionicSession3
                 var returnFlights = db.Schedules.Where(x => x.Route.DepartureAirportId == toAirport && x.Route.ArrivalAirportId == fromAirport && x.Date == DateOnly.FromDateTime(dateTimePicker2.Value))
                     .Select(x => new
                     {
+                        Id = x.Id,
                         From = x.Route.DepartureAirport.Iatacode,
                         To = x.Route.ArrivalAirport.Iatacode,
                         Date = x.Date,
@@ -143,12 +159,13 @@ namespace AmionicSession3
                     }).ToList();
                 if (checkBox2.Checked)
                 {
-                    returnFlights = db.Schedules.Where(x => x.Route.DepartureAirportId == toAirport 
+                    returnFlights = db.Schedules.Where(x => x.Route.DepartureAirportId == toAirport
                     && x.Route.ArrivalAirportId == fromAirport
                     && x.Date > DateOnly.FromDateTime(dateTimePicker2.Value.AddDays(-3))
                     && x.Date < DateOnly.FromDateTime(dateTimePicker2.Value.AddDays(3)))
                     .Select(x => new
                     {
+                        Id = x.Id,
                         From = x.Route.DepartureAirport.Iatacode,
                         To = x.Route.ArrivalAirport.Iatacode,
                         Date = x.Date,
@@ -157,8 +174,9 @@ namespace AmionicSession3
                         CabinPrice = x.EconomyPrice
                     }).ToList();
                 }
-                var flightsReturn = returnFlights.Select(x => new
+                var flightsReturn = returnFlights.Select(x => new 
                 {
+                    Id = x.Id,
                     From = x.From,
                     To = x.To,
                     Date = x.Date,
@@ -174,16 +192,58 @@ namespace AmionicSession3
         private double CalculatePrice(decimal economyPrice, int cabinType)
         {
             double price = (double)economyPrice;
-            if(cabinType == 2)
+            if (cabinType == 2)
             {
-                price = price + (0.35*price);
+                price = price + (0.35 * price);
             }
-            if(cabinType == 3)
+            if (cabinType == 3)
             {
                 double busPrice = price + (0.35 * price);
                 price = busPrice + (0.30 * busPrice);
             }
             return price;
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            int returnId = 0;
+            int outboundId = 0;
+            if (numericUpDown1 == null || numericUpDown1.Value == 0)
+            {
+                MessageBox.Show("Please enter number of passengers.");
+                return;
+            }
+            if (dataGridView1.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Please Select a Outbound Flight");
+                return;
+            }
+            if (radioButton1.Checked)
+            {
+                if (dataGridView1.SelectedRows.Count == 0)
+                {
+                    MessageBox.Show("Please Select a Return Flight");
+                    return;
+                }
+            }
+            DataGridViewRow outboundRow = dataGridView1.SelectedRows[0];
+            DataGridViewRow returnRow = null;
+            if (radioButton1.Checked)
+            {
+                returnRow = dataGridView2.SelectedRows[0];
+                returnId = (int)returnRow.Cells["Id"].Value;
+            }
+            outboundId = (int)outboundRow.Cells["Id"].Value;
+            BookingConfirmation form = new BookingConfirmation(outboundId, returnId, (int)numericUpDown1.Value, (int) comboBox3.SelectedValue);
+            form.Show();
+            this.Hide();
+           // MessageBox.Show($"This is Return Id {returnId}, Outbond Id {outboundId}");
+
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
         }
     }
 }
